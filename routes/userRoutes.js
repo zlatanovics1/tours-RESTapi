@@ -14,4 +14,8 @@ UserRouter.route('/:id')
 ///// AuthController
 UserRouter.route('/signup').post(authController.signup);
 UserRouter.route('/login').post(authController.login);
+
+UserRouter.route('/forgotPassword').post(authController.forgotPassword);
+UserRouter.route('/resetPassword/:token').patch(authController.resetPassword);
+
 module.exports = UserRouter;

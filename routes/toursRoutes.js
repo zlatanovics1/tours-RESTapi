@@ -1,12 +1,16 @@
 const express = require('express');
 const toursController = require('../controllers/toursController');
-
+const authController = require('./../controllers/authenticationController');
 const toursRouter = express.Router();
 // toursRouter.param('id', toursController.checkId);
 
 toursRouter
   .route('/')
-  .get(toursController.getAllTours)
+  .get(
+    authController.protectRoute,
+    authController.provideRoles('admin', 'lead-guide', 'user'),
+    toursController.getAllTours
+  )
   .post(toursController.postNewTour);
 
 toursRouter
