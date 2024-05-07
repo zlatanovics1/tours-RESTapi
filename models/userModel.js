@@ -50,22 +50,33 @@ const UserSchema = new mongoose.Schema({
     enum: ['user', 'guide', 'lead-guide', 'admin'],
     default: 'user',
   },
+  active: {
+    type: Boolean,
+    select: false,
+    default: true,
+  },
 });
 
+// document middelware
 UserSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-
   this.password = await hashPassword(this.password);
   this.passwordConfirm = undefined;
 
   next();
 });
 
-UserSchema.pre('save', async function (next) {
+UserSchema.pre('save', function (next) {
   if (!this.isModified('password') || this.isNew) return next();
 
   this.passwordChangedAt = Date.now() - 1000;
 
+  next();
+});
+
+//query middleware
+UserSchema.pre(/^find/, function (next) {
+  this.select({ active: { $ne: false } });
   next();
 });
 

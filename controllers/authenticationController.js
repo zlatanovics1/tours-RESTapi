@@ -13,6 +13,24 @@ const genUserJWT = (id) => {
   });
 };
 
+const createSendToken = (user, statusCode, res) => {
+  const token = genUserJWT(user._id);
+
+  const cookieOptions = {
+    httpOnly: true,
+    expiresIn: new Date(
+      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+    ),
+  };
+  if (process.env.NODE_ENV === 'production') cookieOptions.secure = true;
+
+  res.cookie('jwt', token, cookieOptions);
+  res.status(statusCode).json({
+    status: 'success',
+    user,
+  });
+};
+
 exports.signup = catchAsyncError(async (req, res, next) => {
   const newUser = await User.create({
     name: req.body.name,
@@ -22,29 +40,19 @@ exports.signup = catchAsyncError(async (req, res, next) => {
     passwordChangedAt: req.body.passwordChangedAt,
   });
 
-  const token = genUserJWT(newUser._id);
-
-  res.status(201).json({
-    status: 'success',
-    user: newUser,
-    token,
-  });
+  createSendToken(newUser, 201, res);
 });
 
 exports.login = catchAsyncError(async (req, res, next) => {
   const { email, password } = req.body;
+
   const user = await User.findOne({ email }).select('+password');
 
   if (!user || !(await user.validatePassword(password))) {
     return next(new AppError('Invalid email or password!', 400));
   }
 
-  const token = genUserJWT(user._id);
-
-  res.status(200).json({
-    status: 'success',
-    token,
-  });
+  createSendToken(user, 200, res);
 });
 
 exports.forgotPassword = catchAsyncError(async (req, res, next) => {
@@ -103,12 +111,33 @@ exports.resetPassword = catchAsyncError(async (req, res, next) => {
   user.passwordResetTokenExpires = undefined;
   await user.save();
 
-  const jwt = genUserJWT(user._id);
+  createSendToken(user, 200, res);
+});
 
-  res.status(200).json({
-    status: 'success',
-    token: jwt,
-  });
+exports.updatePassword = catchAsyncError(async (req, res, next) => {
+  const { password, newPassword, newPasswordConfirm, currentUser } = req.body;
+  // 1) find the user
+  const user = await User.findById(currentUser._id).select('+password');
+
+  if (!user) return next(new AppError('Invalid email or password', 400));
+
+  // 2) check the password
+  const validPass = await user.validatePassword(password);
+  const isSamePassword = await user.validatePassword(newPassword);
+  if (!validPass) return next(new AppError('Invalid email or password', 400));
+  if (isSamePassword)
+    return next(new AppError('You can not use the same password twice!', 400));
+
+  // 3) update password
+  console.log(newPassword);
+  user.password = newPassword;
+  user.passwordConfirm = newPasswordConfirm;
+  await user.save();
+
+  console.log(user.password);
+
+  // 4) send jwt
+  createSendToken(user, 200, res);
 });
 
 /// ROUTES PROTECTION

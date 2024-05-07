@@ -3,7 +3,13 @@ const catchAsyncError = require('../utils/catchAsyncError');
 const User = require('./../models/userModel');
 
 const noUser = (next) => next(new AppError('No user found with such ID', 404));
-
+function filterObjData(obj, ...fields) {
+  let newObj;
+  Object.keys(obj).forEach((field) => {
+    if (fields.includes(field)) newObj[field] = obj[field];
+  });
+  return newObj;
+}
 ///// GET REQUESTS
 //
 //
@@ -29,13 +35,33 @@ exports.getUserById = catchAsyncError(async (req, res, next) => {
 //
 ///////
 
+///// POST / PATCH REQUESTS
+//
+//
+exports.updateUser = catchAsyncError(async (req, res, next) => {
+  const data = filterObjData(req.body, 'email', 'name');
+  const updatedUser = await User.findByIdAndUpdate(req.user._id, data, {
+    new: true,
+    runValidators: true,
+  });
+
+  res.status(200).json({
+    status: 'success',
+    data: updatedUser,
+  });
+});
+
+//
+//
+//////
+
 ///// DELETE REQUESTS
 //
 //
 exports.deleteUser = catchAsyncError(async (req, res, next) => {
-  const deletedUser = await User.findByIdAndDelete(req.params.id);
-
-  if (!deletedUser) return noUser(next);
+  await User.findByIdAndUpdate(req.user._id, {
+    active: false,
+  });
 
   res.status(204).json({
     status: 'success',
